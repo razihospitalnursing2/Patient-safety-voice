@@ -1,0 +1,712 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+      content="width=device-width, initial-scale=1.0">
+
+<title>صدای ایمنی بیمار</title>
+
+<style>
+
+body {
+    font-family: Tahoma, Arial, sans-serif;
+    background: #f5f7fa;
+    margin: 0;
+    padding: 30px 15px;
+    text-align: center;
+}
+
+.box {
+    max-width: 500px;
+    margin: auto;
+    background: white;
+    padding: 30px;
+    border-radius: 18px;
+    box-shadow: 0 3px 15px rgba(0,0,0,0.10);
+}
+
+h1 {
+    color: #1f4e79;
+    font-size: 26px;
+}
+
+p {
+    color: #555;
+    line-height: 2;
+}
+
+button {
+    border: none;
+    padding: 13px 20px;
+    margin: 6px;
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 15px;
+    font-family: inherit;
+}
+
+button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#recordBtn {
+    background: #d9534f;
+    color: white;
+}
+
+#stopBtn {
+    background: #555;
+    color: white;
+}
+
+.voice {
+    background: #e9eef5;
+}
+
+.voice:hover {
+    background: #d9e2ef;
+}
+
+#sendBtn {
+    background: #198754;
+    color: white;
+    width: 80%;
+    font-size: 17px;
+    margin-top: 20px;
+}
+
+audio {
+    width: 100%;
+    margin-top: 20px;
+}
+
+#status {
+    margin: 18px;
+    font-weight: bold;
+}
+
+.warning {
+    background: #fff8e1;
+    padding: 12px;
+    border-radius: 10px;
+    font-size: 13px;
+    color: #765c00;
+    margin-top: 20px;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<div class="box">
+
+
+<h1>🛡️ صدای ایمنی بیمار</h1>
+
+
+<p>
+اگر مشکلی در زمینه ایمنی بیمار مشاهده کرده‌اید،
+می‌توانید آن را به صورت صوتی گزارش کنید.
+</p>
+
+
+<p>
+نیازی به ذکر نام یا مشخصات خود ندارید.
+</p>
+
+
+<br>
+
+
+<button id="recordBtn">
+🎙️ شروع ضبط
+</button>
+
+
+<button id="stopBtn" disabled>
+⏹️ پایان ضبط
+</button>
+
+
+<div id="status">
+آماده ضبط
+</div>
+
+
+<hr>
+
+
+<h3>
+🎭 تغییر صدای گزارش
+</h3>
+
+
+<button class="voice"
+        onclick="changeVoice('normal')">
+
+🔵 صدای معمولی
+
+</button>
+
+
+<button class="voice"
+        onclick="changeVoice('low')">
+
+🟣 صدای بم
+
+</button>
+
+
+<button class="voice"
+        onclick="changeVoice('robot')">
+
+🟢 صدای رباتی
+
+</button>
+
+
+<audio id="audio"
+       controls>
+</audio>
+
+
+<br>
+
+
+<button id="sendBtn"
+        disabled>
+
+📤 ارسال ناشناس
+
+</button>
+
+
+<div class="warning">
+
+لطفاً در گزارش صوتی، نام خود یا اطلاعاتی که
+می‌تواند هویت افراد را مشخص کند بیان نکنید.
+
+</div>
+
+
+</div>
+
+
+
+<script>
+
+
+let mediaRecorder;
+
+let audioChunks = [];
+
+let originalBlob = null;
+
+let currentBlob = null;
+
+
+
+// =====================================
+// شروع ضبط
+// =====================================
+
+document.getElementById("recordBtn").onclick =
+async function() {
+
+
+try {
+
+
+const stream =
+await navigator.mediaDevices.getUserMedia({
+audio: true
+});
+
+
+mediaRecorder =
+new MediaRecorder(stream);
+
+
+audioChunks = [];
+
+
+mediaRecorder.ondataavailable =
+function(event) {
+
+audioChunks.push(event.data);
+
+};
+
+
+mediaRecorder.onstop =
+function() {
+
+
+originalBlob =
+new Blob(audioChunks, {
+type: "audio/webm"
+});
+
+
+currentBlob = originalBlob;
+
+
+playAudio(currentBlob);
+
+
+document.getElementById("sendBtn")
+.disabled = false;
+
+
+document.getElementById("status")
+.innerText =
+"ضبط انجام شد. اکنون نوع صدا را انتخاب کنید.";
+
+
+};
+
+
+mediaRecorder.start();
+
+
+document.getElementById("recordBtn")
+.disabled = true;
+
+
+document.getElementById("stopBtn")
+.disabled = false;
+
+
+document.getElementById("status")
+.innerText =
+"🔴 در حال ضبط...";
+
+
+}
+
+catch(error) {
+
+
+alert(
+"دسترسی به میکروفون داده نشد."
+);
+
+
+}
+
+};
+
+
+
+// =====================================
+// پایان ضبط
+// =====================================
+
+document.getElementById("stopBtn").onclick =
+function() {
+
+
+mediaRecorder.stop();
+
+
+document.getElementById("recordBtn")
+.disabled = false;
+
+
+document.getElementById("stopBtn")
+.disabled = true;
+
+
+};
+
+
+
+// =====================================
+// پخش صدا
+// =====================================
+
+function playAudio(blob) {
+
+
+const url =
+URL.createObjectURL(blob);
+
+
+document.getElementById("audio")
+.src = url;
+
+}
+
+
+
+// =====================================
+// تغییر صدا
+// =====================================
+
+async function changeVoice(type) {
+
+
+if (!originalBlob) {
+
+
+alert(
+"ابتدا صدای خود را ضبط کنید."
+);
+
+
+return;
+
+}
+
+
+document.getElementById("status")
+.innerText =
+"⏳ در حال پردازش صدا...";
+
+
+
+try {
+
+
+const audioContext =
+new AudioContext();
+
+
+const arrayBuffer =
+await originalBlob.arrayBuffer();
+
+
+const audioBuffer =
+await audioContext.decodeAudioData(arrayBuffer);
+
+
+
+let rate = 1;
+
+
+if (type === "normal") {
+
+rate = 1;
+
+}
+
+
+if (type === "low") {
+
+rate = 0.75;
+
+}
+
+
+if (type === "robot") {
+
+rate = 1.4;
+
+}
+
+
+
+const offlineContext =
+new OfflineAudioContext(
+audioBuffer.numberOfChannels,
+audioBuffer.length / rate,
+audioBuffer.sampleRate
+);
+
+
+const source =
+offlineContext.createBufferSource();
+
+
+source.buffer =
+audioBuffer;
+
+
+source.playbackRate.value =
+rate;
+
+
+source.connect(
+offlineContext.destination
+);
+
+
+source.start();
+
+
+const renderedBuffer =
+await offlineContext.startRendering();
+
+
+currentBlob =
+audioBufferToWav(renderedBuffer);
+
+
+playAudio(currentBlob);
+
+
+document.getElementById("status")
+.innerText =
+"✅ صدای جدید آماده است.";
+
+
+}
+
+catch(error) {
+
+
+console.error(error);
+
+
+alert(
+"متأسفانه تغییر صدا انجام نشد."
+);
+
+
+}
+
+}
+
+
+
+// =====================================
+// تبدیل AudioBuffer به WAV
+// =====================================
+
+function audioBufferToWav(buffer) {
+
+
+const numberOfChannels =
+buffer.numberOfChannels;
+
+const sampleRate =
+buffer.sampleRate;
+
+const format = 1;
+
+const bitDepth = 16;
+
+const channelLength =
+buffer.length * numberOfChannels * 2;
+
+const bufferLength =
+44 + channelLength;
+
+
+const arrayBuffer =
+new ArrayBuffer(bufferLength);
+
+const view =
+new DataView(arrayBuffer);
+
+
+
+writeString(view, 0, "RIFF");
+
+view.setUint32(
+4,
+36 + channelLength,
+true
+);
+
+writeString(view, 8, "WAVE");
+
+writeString(view, 12, "fmt ");
+
+view.setUint32(
+16,
+16,
+true
+);
+
+view.setUint16(
+20,
+format,
+true
+);
+
+view.setUint16(
+22,
+numberOfChannels,
+true
+);
+
+view.setUint32(
+24,
+sampleRate,
+true
+);
+
+view.setUint32(
+28,
+sampleRate *
+numberOfChannels *
+2,
+true
+);
+
+view.setUint16(
+32,
+numberOfChannels * 2,
+true
+);
+
+view.setUint16(
+34,
+bitDepth,
+true
+);
+
+writeString(
+view,
+36,
+"data"
+);
+
+view.setUint32(
+40,
+channelLength,
+true
+);
+
+
+let offset = 44;
+
+
+for (
+let i = 0;
+i < buffer.length;
+i++
+) {
+
+
+for (
+let channel = 0;
+channel < numberOfChannels;
+channel++
+) {
+
+
+let sample =
+buffer.getChannelData(channel)[i];
+
+
+sample =
+Math.max(
+-1,
+Math.min(1, sample)
+);
+
+
+view.setInt16(
+offset,
+sample < 0
+? sample * 0x8000
+: sample * 0x7FFF,
+true
+);
+
+
+offset += 2;
+
+}
+
+}
+
+
+return new Blob(
+[arrayBuffer],
+{type: "audio/wav"}
+);
+
+}
+
+
+
+function writeString(
+view,
+offset,
+string
+) {
+
+
+for (
+let i = 0;
+i < string.length;
+i++
+) {
+
+
+view.setUint8(
+offset + i,
+string.charCodeAt(i)
+);
+
+}
+
+}
+
+
+
+// =====================================
+// ارسال
+// =====================================
+
+document.getElementById("sendBtn").onclick =
+function() {
+
+
+if (!currentBlob) {
+
+
+alert(
+"ابتدا یک صدا ضبط کنید."
+);
+
+
+return;
+
+}
+
+
+// فعلاً فقط تست
+
+const url =
+URL.createObjectURL(currentBlob);
+
+
+const link =
+document.createElement("a");
+
+
+link.href = url;
+
+link.download =
+"anonymous_patient_safety_report.wav";
+
+
+link.click();
+
+
+alert(
+"فایل صوتی تغییر‌یافته ذخیره شد."
+);
+
+
+};
+
+</script>
+
+
+</body>
+
+</html>
