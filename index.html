@@ -183,18 +183,15 @@ audio {
 </button>
 
 
-<audio id="audio"
-       controls>
-</audio>
+<audio id="audio" controls></audio>
 
 
 <br>
 
 
-<button id="sendBtn"
-        disabled>
+<button id="sendBtn" disabled>
 
-📤 ارسال ناشناس
+📤 آماده‌سازی فایل ناشناس
 
 </button>
 
@@ -210,9 +207,6 @@ audio {
 </div>
 
 
-<!-- =====================================
-     فرم دریافت گزارش Tally
-     ===================================== -->
 
 <div class="tally-box">
 
@@ -221,8 +215,7 @@ audio {
 </h3>
 
 <p>
-پس از ذخیره فایل صوتی، آن را در فرم زیر انتخاب
-و ارسال کنید.
+پس از آماده شدن فایل، آن را در فرم زیر انتخاب و ارسال کنید.
 </p>
 
 
@@ -238,6 +231,7 @@ title="صدای ایمنی بیمار">
 </iframe>
 
 </div>
+
 
 
 <script>
@@ -260,9 +254,7 @@ let currentBlob = null;
 document.getElementById("recordBtn").onclick =
 async function() {
 
-
 try {
-
 
 const stream =
 await navigator.mediaDevices.getUserMedia({
@@ -270,8 +262,26 @@ audio: true
 });
 
 
+// انتخاب فرمت مناسب برای Safari
+
+let mimeType = "";
+
+if (MediaRecorder.isTypeSupported("audio/mp4")) {
+
+    mimeType = "audio/mp4";
+
+}
+else if (MediaRecorder.isTypeSupported("audio/webm")) {
+
+    mimeType = "audio/webm";
+
+}
+
+
 mediaRecorder =
-new MediaRecorder(stream);
+mimeType
+? new MediaRecorder(stream, {mimeType: mimeType})
+: new MediaRecorder(stream);
 
 
 audioChunks = [];
@@ -280,7 +290,11 @@ audioChunks = [];
 mediaRecorder.ondataavailable =
 function(event) {
 
+if (event.data && event.data.size > 0) {
+
 audioChunks.push(event.data);
+
+}
 
 };
 
@@ -288,10 +302,13 @@ audioChunks.push(event.data);
 mediaRecorder.onstop =
 function() {
 
+const actualType =
+mediaRecorder.mimeType || mimeType || "audio/mp4";
+
 
 originalBlob =
 new Blob(audioChunks, {
-type: "audio/webm"
+type: actualType
 });
 
 
@@ -310,6 +327,12 @@ document.getElementById("status")
 .innerText =
 "ضبط انجام شد. اکنون نوع صدا را انتخاب کنید.";
 
+
+// بستن میکروفون
+
+stream.getTracks().forEach(
+track => track.stop()
+);
 
 };
 
@@ -334,11 +357,11 @@ document.getElementById("status")
 
 catch(error) {
 
+console.error(error);
 
 alert(
 "دسترسی به میکروفون داده نشد."
 );
-
 
 }
 
@@ -353,17 +376,18 @@ alert(
 document.getElementById("stopBtn").onclick =
 function() {
 
+if (mediaRecorder &&
+    mediaRecorder.state !== "inactive") {
 
-mediaRecorder.stop();
+    mediaRecorder.stop();
 
+}
 
 document.getElementById("recordBtn")
 .disabled = false;
 
-
 document.getElementById("stopBtn")
 .disabled = true;
-
 
 };
 
@@ -375,10 +399,8 @@ document.getElementById("stopBtn")
 
 function playAudio(blob) {
 
-
 const url =
 URL.createObjectURL(blob);
-
 
 document.getElementById("audio")
 .src = url;
@@ -396,11 +418,9 @@ async function changeVoice(type) {
 
 if (!originalBlob) {
 
-
 alert(
 "ابتدا صدای خود را ضبط کنید."
 );
-
 
 return;
 
@@ -415,8 +435,13 @@ document.getElementById("status")
 try {
 
 
+const AudioContextClass =
+window.AudioContext ||
+window.webkitAudioContext;
+
+
 const audioContext =
-new AudioContext();
+new AudioContextClass();
 
 
 const arrayBuffer =
@@ -453,10 +478,17 @@ rate = 1.4;
 
 
 
+const newLength =
+Math.max(
+1,
+Math.round(audioBuffer.length / rate)
+);
+
+
 const offlineContext =
 new OfflineAudioContext(
 audioBuffer.numberOfChannels,
-audioBuffer.length / rate,
+newLength,
 audioBuffer.sampleRate
 );
 
@@ -497,18 +529,17 @@ document.getElementById("status")
 "✅ صدای جدید آماده است.";
 
 
+await audioContext.close();
+
 }
 
 catch(error) {
 
-
 console.error(error);
-
 
 alert(
 "متأسفانه تغییر صدا انجام نشد."
 );
-
 
 }
 
@@ -517,7 +548,7 @@ alert(
 
 
 // =====================================
-// تبدیل AudioBuffer به WAV
+// تبدیل به WAV استاندارد
 // =====================================
 
 function audioBufferToWav(buffer) {
@@ -529,15 +560,19 @@ buffer.numberOfChannels;
 const sampleRate =
 buffer.sampleRate;
 
-const format = 1;
+const bitDepth =
+16;
 
-const bitDepth = 16;
+const bytesPerSample =
+2;
 
-const channelLength =
-buffer.length * numberOfChannels * 2;
+const dataLength =
+buffer.length *
+numberOfChannels *
+bytesPerSample;
 
 const bufferLength =
-44 + channelLength;
+44 + dataLength;
 
 
 const arrayBuffer =
@@ -547,18 +582,33 @@ const view =
 new DataView(arrayBuffer);
 
 
+writeString(
+view,
+0,
+"RIFF"
+);
 
-writeString(view, 0, "RIFF");
 
 view.setUint32(
 4,
-36 + channelLength,
+36 + dataLength,
 true
 );
 
-writeString(view, 8, "WAVE");
 
-writeString(view, 12, "fmt ");
+writeString(
+view,
+8,
+"WAVE"
+);
+
+
+writeString(
+view,
+12,
+"fmt "
+);
+
 
 view.setUint32(
 16,
@@ -566,11 +616,13 @@ view.setUint32(
 true
 );
 
+
 view.setUint16(
 20,
-format,
+1,
 true
 );
+
 
 view.setUint16(
 22,
@@ -578,25 +630,30 @@ numberOfChannels,
 true
 );
 
+
 view.setUint32(
 24,
 sampleRate,
 true
 );
 
+
 view.setUint32(
 28,
 sampleRate *
 numberOfChannels *
-2,
+bytesPerSample,
 true
 );
 
+
 view.setUint16(
 32,
-numberOfChannels * 2,
+numberOfChannels *
+bytesPerSample,
 true
 );
+
 
 view.setUint16(
 34,
@@ -604,15 +661,17 @@ bitDepth,
 true
 );
 
+
 writeString(
 view,
 36,
 "data"
 );
 
+
 view.setUint32(
 40,
-channelLength,
+dataLength,
 true
 );
 
@@ -645,11 +704,15 @@ Math.min(1, sample)
 );
 
 
-view.setInt16(
-offset,
+let value =
 sample < 0
 ? sample * 0x8000
-: sample * 0x7FFF,
+: sample * 0x7FFF;
+
+
+view.setInt16(
+offset,
+value,
 true
 );
 
@@ -663,12 +726,18 @@ offset += 2;
 
 return new Blob(
 [arrayBuffer],
-{type: "audio/wav"}
+{
+type: "audio/wav"
+}
 );
 
 }
 
 
+
+// =====================================
+// نوشتن متن WAV
+// =====================================
 
 function writeString(
 view,
@@ -683,7 +752,6 @@ i < string.length;
 i++
 ) {
 
-
 view.setUint8(
 offset + i,
 string.charCodeAt(i)
@@ -696,7 +764,7 @@ string.charCodeAt(i)
 
 
 // =====================================
-// ارسال ناشناس
+// آماده‌سازی فایل
 // =====================================
 
 document.getElementById("sendBtn").onclick =
@@ -705,32 +773,47 @@ function() {
 
 if (!currentBlob) {
 
-
 alert(
 "ابتدا یک صدا ضبط کنید."
 );
-
 
 return;
 
 }
 
 
-// ساخت فایل صوتی
+// اطمینان از اینکه فایل WAV واقعی است
+
+const wavFile =
+new File(
+[currentBlob],
+"patient_safety_anonymous.wav",
+{
+type: "audio/wav"
+}
+);
+
+
+// دانلود فایل
 
 const url =
-URL.createObjectURL(currentBlob);
+URL.createObjectURL(wavFile);
 
 
 const link =
 document.createElement("a");
 
 
-link.href = url;
+link.href =
+url;
 
 
 link.download =
-"anonymous_patient_safety_report.wav";
+"patient_safety_anonymous.wav";
+
+
+link.style.display =
+"none";
 
 
 document.body.appendChild(link);
@@ -742,31 +825,37 @@ link.click();
 document.body.removeChild(link);
 
 
-// رفتن خودکار به فرم Tally
+// آزاد کردن URL بعد از مدتی
 
-const tallyForm =
-document.querySelector(
-'iframe[data-tally-src]'
+setTimeout(
+function() {
+
+URL.revokeObjectURL(url);
+
+},
+3000
 );
 
 
-if (tallyForm) {
+// رفتن به فرم Tally
+
+const tallyBox =
+document.querySelector(".tally-box");
 
 
-tallyForm.scrollIntoView({
+if (tallyBox) {
+
+tallyBox.scrollIntoView({
 behavior: "smooth",
 block: "start"
 });
 
-
 }
 
 
-// تغییر پیام
-
 document.getElementById("status")
 .innerText =
-"✅ فایل صوتی ذخیره شد. اکنون آن را در فرم زیر انتخاب و ارسال کنید.";
+"✅ فایل آماده شد. لطفاً فایل patient_safety_anonymous.wav را در فرم زیر انتخاب کنید.";
 
 };
 
@@ -781,29 +870,25 @@ var d = document;
 var w =
 "https://tally.so/widgets/embed.js";
 
+
 var v = function() {
 
 
 if (typeof Tally != "undefined") {
 
-
 Tally.loadEmbeds();
-
 
 }
 
 else {
-
 
 d.querySelectorAll(
 'iframe[data-tally-src]:not([src])'
 ).forEach(
 function(e) {
 
-
 e.src =
 e.dataset.tallySrc;
-
 
 }
 );
@@ -815,9 +900,7 @@ e.dataset.tallySrc;
 
 if (typeof Tally != "undefined") {
 
-
 v();
-
 
 }
 
@@ -833,7 +916,6 @@ d.createElement("script");
 
 
 s.src = w;
-
 
 s.onload = v;
 
